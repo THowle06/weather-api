@@ -1,16 +1,16 @@
-require('dotenv').config();
-const express = require('express');
-const { StatusCodes } = require('http-status-codes');
+require("dotenv").config();
+const express = require("express");
+
+const indexRouter = require("./routes/index.routes");
+const { StatusCodes } = require("http-status-codes");
 
 const app = express();
-const port = process.env.PORT || 3000;
 
 app.use(express.json());
+app.use("/", indexRouter);
 
-app.get("/", (req, res) => {
-    res.status(StatusCodes.OK).json({ "message": "Welcome to the Weather API!" });
-});
+app.use((req, res) => {
+    res.status(StatusCodes.NOT_FOUND).json({ message: "Route not found" });
+})
 
-app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`);
-});
+module.exports = app;
