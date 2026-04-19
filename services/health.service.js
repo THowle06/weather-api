@@ -50,7 +50,7 @@ function requestWithTimeout(url, timeoutMs = DEFAULT_TIMEOUT_MS) {
                 res.resume();
 
                 resolve({
-                    ok: res.statusCode >= 200 && res.statusCode <= 300,
+                    ok: res.statusCode >= 200 && res.statusCode < 300,
                     statusCode: res.statusCode,
                     elapsedMs,
                 });
@@ -107,7 +107,7 @@ async function getExternalWeatherApiHealth() {
         url,
         statusCode: result.statusCode,
         elapsedMs: result.elapsedMs,
-        error: result.error || "Upstream responsed with a non-2xx status",
+        error: result.error || "Upstream responded with a non-2xx status",
     };
 }
 
