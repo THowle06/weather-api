@@ -1,6 +1,5 @@
 const https = require("https");
 const http = require("http");
-const { parse } = require("path");
 
 const WEATHER_API_BASE_URL = process.env.API_URL;
 const WEATHER_API_KEY = process.env.API_KEY;
@@ -30,7 +29,7 @@ function requestJson(url, timeoutMs = DEFAULT_TIMEOUT_MS) {
         const client = parsedUrl.protocol === "http:" ? http : https;
 
         const req = client.request(
-            parse,
+            parsedUrl,
             { method: "GET", timeout: timeoutMs },
             (res) => {
                 let body = "";
