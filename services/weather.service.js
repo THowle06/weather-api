@@ -1,9 +1,11 @@
 const https = require("https");
 const http = require("http");
+const { getRedisClient, isRedisReady } = require("./cache.service");
 
 const WEATHER_API_BASE_URL = process.env.API_URL;
 const WEATHER_API_KEY = process.env.API_KEY;
 const DEFAULT_TIMEOUT_MS = 5000;
+const WEATHER_CACHE_TTL_SECONDS = Number(process.env.WEATHER_CACHE_TTL_SECONDS || 600);
 
 function buildWeatherUrl(city) {
     if (!WEATHER_API_BASE_URL || !WEATHER_API_KEY) {
@@ -105,6 +107,35 @@ function mapWeatherResponse(city, upstreamData) {
     };
 }
 
+async function getFromCache(cacheKey) {
+    if (!isRedisReady()) return null;
+
+    try {
+        const redis = getRedisClient();
+        const cached = await redis.get(cacheKey);
+        if (!cached) return null;
+        return JSON.parse(cached);
+    } catch (error) {
+        console.error("Redis read failed:", error.message);
+        return null;
+    }
+}
+
+function buildCacheKey(city) {
+    return `weather:${city.toLowerCase()}`;
+}
+
+async function saveToCache(cacheKey, value) {
+    if (!isRedisReady()) return;
+
+    try {
+        const redis = getRedisClient();
+        await redis.set(cacheKey, JSON.stringify(value), { EX: WEATHER_CACHE_TTL_SECONDS });
+    } catch (error) {
+        console.error("Redis write failed:", error.message);
+    }
+}
+
 async function getWeatherByCity(city) {
     if (!city || !city.trim()) {
         const error = new Error("City is required");
@@ -113,10 +144,20 @@ async function getWeatherByCity(city) {
     }
 
     const normalisedCity = city.trim();
+    const cacheKey = buildCacheKey(normalisedCity);
+
+    const cached = await getFromCache(cacheKey);
+    if (cached) {
+        return cached;
+    }
+
     const url = buildWeatherUrl(normalisedCity);
     const upstreamData = await requestJson(url);
+    const mappedResponse = mapWeatherResponse(normalisedCity, upstreamData);
 
-    return mapWeatherResponse(normalisedCity, upstreamData);
+    await saveToCache(cacheKey, mappedResponse);
+
+    return mappedResponse;
 }
 
 module.exports = {

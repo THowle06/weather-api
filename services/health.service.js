@@ -1,5 +1,6 @@
 const https = require("https");
 const http = require("http");
+const { getRedisClient, isRedisReady } = require("./cache.service");
 
 const DEFAULT_TIMEOUT_MS = 3000;
 const WEATHER_API_BASE_URL = process.env.API_URL;
@@ -111,15 +112,54 @@ async function getExternalWeatherApiHealth() {
     };
 }
 
+async function getCacheHealth() {
+    const startedAt = Date.now();
+
+    if (!isRedisReady()) {
+        return {
+            service: "redis-cache",
+            status: "down",
+            timestamp: getTimestamp(),
+            error: "Redis client is not connected",
+        };
+    }
+
+    try {
+        const redis = getRedisClient();
+        const pingResponse = await redis.ping();
+        const elapsedMs = Date.now() - startedAt;
+
+        return {
+            service: "redis-cache",
+            status: pingResponse === "PONG" ? "ok" : "down",
+            timestamp: getTimestamp(),
+            elapsedMs,
+            response: pingResponse,
+        };
+    } catch (error) {
+        const elapsedMs = Date.now() - startedAt;
+
+        return {
+            service: "redis-cache",
+            status: "down",
+            timestamp: getTimestamp(),
+            elapsedMs,
+            error: error.message || "Redis ping failed",
+        };
+    }
+}
+
 async function getHealthSummary() {
-    const [app, external] = await Promise.all([
+    const [app, external, cache] = await Promise.all([
         Promise.resolve(getAppHealth()),
         getExternalWeatherApiHealth(),
+        getCacheHealth(),
     ]);
 
     return {
         app,
         external,
+        cache,
         timestamp: getTimestamp(),
     };
 }
@@ -127,5 +167,6 @@ async function getHealthSummary() {
 module.exports = {
     getAppHealth,
     getExternalWeatherApiHealth,
+    getCacheHealth,
     getHealthSummary,
 };
