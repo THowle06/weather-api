@@ -1,0 +1,40 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: weather-api
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.docker
+    environment:
+      REDIS_URL: redis://redis:6379
+      PORT: 3000
+      NODE_ENV: production
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "node", "-e", "fetch('http://localhost:3000/health/app').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    container_name: weather-api-redis
+    command: [ "redis-server", "--appendonly", "yes" ]
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  redis-data:
